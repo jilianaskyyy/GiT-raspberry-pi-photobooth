@@ -1,3 +1,5 @@
+from camera import Camera
+from picamera2 import Picamera2
 from camera.capture import capture_four_photos
 
 def main():
