@@ -6,7 +6,7 @@ import time
 PHOTO_FOLDER = "photos"
 
 
-class Camera:
+class RPICamera:
 
     def __init__(self):
 
