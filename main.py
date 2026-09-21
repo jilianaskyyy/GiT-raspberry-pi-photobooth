@@ -1,4 +1,4 @@
-from camera import Camera
+from camera.camera import Camera
 from camera.capture import capture_four_photos
 
 def main():
