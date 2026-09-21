@@ -19,7 +19,6 @@ class Camera:
         )
 
         self.camera.configure(config)
-
         self.camera.start()
 
         time.sleep(2)
@@ -27,11 +26,7 @@ class Camera:
     def take_photo(self, photo_number):
 
         filename = f"photo_{photo_number}.jpg"
-
-        filepath = os.path.join(
-            PHOTO_FOLDER,
-            filename
-        )
+        filepath = os.path.join(PHOTO_FOLDER, filename)
 
         self.camera.capture_file(filepath)
 
