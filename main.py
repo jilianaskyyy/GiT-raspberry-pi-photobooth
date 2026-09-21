@@ -1,5 +1,5 @@
-from camera import Camera
-from capture import capture_four_photos
+from camera.camera import Camera
+from camera.capture import capture_four_photos
 
 
 def main():
