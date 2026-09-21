@@ -1,10 +1,10 @@
-from camera import Camera
+from camera import RPICamera
 from picamera2 import Picamera2
 from camera.capture import capture_four_photos
 
 def main():
 
-    camera = Camera()
+    camera = RPICamera()
 
     try:
         timer = 3
