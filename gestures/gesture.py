@@ -25,8 +25,8 @@ class GestureDetector:
         self.mp_hands = mp.solutions.hands
 
         self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
+            static_image_mode=False,                # video frames, not unrelated photographs
+            max_num_hands=1,                        # only detect 1 hand
             min_detection_confidence=0.6,
             min_tracking_confidence=0.6
         )
@@ -35,7 +35,7 @@ class GestureDetector:
         self.mp_draw = mp.solutions.drawing_utils
 
 
-    def process_frame(self, frame):
+    def process_frame(self, frame):    # camera take in pictures in BGR, ASK if display will be in BGR or greyscale. ASK 
         """
         Send one camera frame to MediaPipe.
 
@@ -49,7 +49,8 @@ class GestureDetector:
 
         # OpenCV normally gives us images in BGR format.
         # MediaPipe expects RGB images.
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Convert frame from BGR to RGB 
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)          
 
         # Process the image using MediaPipe
         results = self.hands.process(rgb_frame)
@@ -271,31 +272,31 @@ class GestureDetector:
         return thumb_tip.y < thumb_mcp.y
 
 
-    def is_thumbs_down(self, landmarks, fingers):
-        """
-        Check for a thumbs-down gesture.
+    # def is_thumbs_down(self, landmarks, fingers):
+    #     """
+    #     Check for a thumbs-down gesture.
 
-        For thumbs-down:
-        - Thumb should be extended
-        - Other four fingers should be folded
-        - Thumb tip should be BELOW the thumb MCP joint
-        """
+    #     For thumbs-down:
+    #     - Thumb should be extended
+    #     - Other four fingers should be folded
+    #     - Thumb tip should be BELOW the thumb MCP joint
+    #     """
 
-        other_fingers_folded = (
-            not fingers["index"]
-            and not fingers["middle"]
-            and not fingers["ring"]
-            and not fingers["pinky"]
-        )
+    #     other_fingers_folded = (
+    #         not fingers["index"]
+    #         and not fingers["middle"]
+    #         and not fingers["ring"]
+    #         and not fingers["pinky"]
+    #     )
 
-        if not fingers["thumb"] or not other_fingers_folded:
-            return False
+    #     if not fingers["thumb"] or not other_fingers_folded:
+    #         return False
 
-        thumb_tip = landmarks.landmark[4]
-        thumb_mcp = landmarks.landmark[2]
+    #     thumb_tip = landmarks.landmark[4]
+    #     thumb_mcp = landmarks.landmark[2]
 
-        # Thumb tip should be BELOW the thumb MCP joint.
-        return thumb_tip.y > thumb_mcp.y
+    #     # Thumb tip should be BELOW the thumb MCP joint.
+    #     return thumb_tip.y > thumb_mcp.y
 
 
     def classify_gesture(self, landmarks):
@@ -323,8 +324,8 @@ class GestureDetector:
         if self.is_thumbs_up(landmarks, fingers):
             return "THUMBS_UP"
 
-        if self.is_thumbs_down(landmarks, fingers):
-            return "THUMBS_DOWN"
+        if self.is_fist(landmarks, fingers):
+            return "IS_FIST"
 
         # Check exactly 3 extended fingers.
         if self.is_three_fingers(fingers):
