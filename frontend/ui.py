@@ -2,7 +2,6 @@ import pygame
 
 
 class PhotoboothUI:
-
     def __init__(self):
         pygame.init()
 
@@ -22,6 +21,11 @@ class PhotoboothUI:
 
         self.running = True
         self.current_screen = "home"
+
+        self.timer = 0
+        self.countdown_start = 0
+        self.photo_number = 1
+        self.photo_taken = False
 
     def draw_text(self, text, font, x, y):
         surface = font.render(text, True, (0, 0, 0))
@@ -50,27 +54,28 @@ class PhotoboothUI:
             325
         )
 
-    def draw_camera(self):
-        self.screen.fill((0, 0, 0))
+    def draw_timer_select(self):
+        self.screen.fill((255, 250, 236))
 
         self.draw_text(
-            "Camera Preview",
-            self.text_font,
-            20,
-            20
-        )
-
-        pygame.draw.rect(
-            self.screen,
-            (80, 80, 80),
-            (100, 70, 600, 320)
+            "CHOOSE COUNTDOWN",
+            self.title_font,
+            220,
+            80
         )
 
         self.draw_text(
-            "Camera Feed",
+            "Press 3 for 3 seconds",
             self.text_font,
-            320,
-            215
+            260,
+            220
+        )
+
+        self.draw_text(
+            "Press 5 for 5 seconds",
+            self.text_font,
+            260,
+            270
         )
 
     def draw_countdown(self, number):
@@ -83,57 +88,130 @@ class PhotoboothUI:
             200
         )
 
+        self.draw_text(
+            f"Photo {self.photo_number}/4",
+            self.text_font,
+            330,
+            280
+        )
+
     def draw_review(self):
         self.screen.fill((255, 250, 236))
 
         self.draw_text(
-            "Review Photo",
+            "REVIEW PHOTOS",
             self.title_font,
-            270,
-            50
+            260,
+            40
+        )
+
+        # Temporary placeholders for 4 photos
+        pygame.draw.rect(
+            self.screen,
+            (220, 220, 220),
+            (50, 120, 160, 120)
         )
 
         pygame.draw.rect(
             self.screen,
             (220, 220, 220),
-            (200, 120, 400, 250)
+            (230, 120, 160, 120)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (220, 220, 220),
+            (410, 120, 160, 120)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (220, 220, 220),
+            (590, 120, 160, 120)
+        )
+
+        self.draw_text(
+            "PHOTO 1",
+            self.text_font,
+            90,
+            170
+        )
+
+        self.draw_text(
+            "PHOTO 2",
+            self.text_font,
+            270,
+            170
+        )
+
+        self.draw_text(
+            "PHOTO 3",
+            self.text_font,
+            450,
+            170
+        )
+
+        self.draw_text(
+            "PHOTO 4",
+            self.text_font,
+            630,
+            170
         )
 
         pygame.draw.rect(
             self.screen,
             (255, 200, 50),
-            (100, 400, 250, 60)
+            (100, 350, 250, 60)
         )
 
         pygame.draw.rect(
             self.screen,
             (230, 230, 230),
-            (450, 400, 250, 60)
+            (450, 350, 250, 60)
         )
 
         self.draw_text(
             "CONFIRM",
             self.button_font,
             155,
-            415
+            365
         )
 
         self.draw_text(
             "RETAKE",
             self.button_font,
             515,
-            415
+            365
         )
 
     def draw(self):
         if self.current_screen == "home":
             self.draw_home()
 
-        elif self.current_screen == "camera":
-            self.draw_camera()
+        elif self.current_screen == "timer_select":
+            self.draw_timer_select()
 
         elif self.current_screen == "countdown":
-            self.draw_countdown(3)
+            elapsed = (pygame.time.get_ticks() - self.countdown_start) / 1000
+            remaining = self.timer - int(elapsed)
+
+            if remaining > 0:
+                self.draw_countdown(remaining)
+
+            else:
+                if not self.photo_taken:
+                    self.photo_taken = True
+
+                    print(f"Photo {self.photo_number} taken!")
+
+                    self.photo_number += 1
+
+                if self.photo_number > 4:
+                    self.current_screen = "review"
+
+                else:
+                    self.countdown_start = pygame.time.get_ticks()
+                    self.photo_taken = False
 
         elif self.current_screen == "review":
             self.draw_review()
@@ -141,7 +219,6 @@ class PhotoboothUI:
         pygame.display.flip()
 
     def handle_event(self, event):
-
         if event.type == pygame.QUIT:
             self.running = False
 
@@ -150,32 +227,36 @@ class PhotoboothUI:
             if event.key == pygame.K_ESCAPE:
                 self.running = False
 
-            elif event.key == pygame.K_1:
-                self.current_screen = "home"
+            elif self.current_screen == "home":
 
-            elif event.key == pygame.K_2:
-                self.current_screen = "camera"
+                if event.key == pygame.K_SPACE:
+                    self.current_screen = "timer_select"
 
-            elif event.key == pygame.K_3:
-                self.current_screen = "countdown"
+            elif self.current_screen == "timer_select":
 
-            elif event.key == pygame.K_4:
-                self.current_screen = "review"
+                if event.key == pygame.K_3:
+                    self.timer = 3
+                    self.photo_number = 1
+                    self.photo_taken = False
+                    self.countdown_start = pygame.time.get_ticks()
+                    self.current_screen = "countdown"
 
-    def run(self):
+                elif event.key == pygame.K_5:
+                    self.timer = 5
+                    self.photo_number = 1
+                    self.photo_taken = False
+                    self.countdown_start = pygame.time.get_ticks()
+                    self.current_screen = "countdown"
 
-        clock = pygame.time.Clock()
+            elif self.current_screen == "review":
 
-        while self.running:
+                if event.key == pygame.K_SPACE:
+                    self.current_screen = "home"
 
-            for event in pygame.event.get():
-                self.handle_event(event)
-
-            self.draw()
-
-            clock.tick(60)
-
-        pygame.quit()
+                elif event.key == pygame.K_0:
+                    self.photo_number = 1
+                    self.photo_taken = False
+                    self.current_screen = "timer_select"
 
     def run(self):
         clock = pygame.time.Clock()
