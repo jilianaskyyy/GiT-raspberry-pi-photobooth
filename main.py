@@ -1,4 +1,4 @@
-from capture import capture_four_photos
+from camera.capture import capture_four_photos
 
 timer = 3 
 
