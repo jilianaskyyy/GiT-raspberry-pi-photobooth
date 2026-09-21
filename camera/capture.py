@@ -1,46 +1,28 @@
 import time
-from camera import Camera 
+
 
 def countdown(seconds):
 
-    # Countdown 
     for i in range(seconds, 0, -1):
-        print("Photo in {}...".format(i))
+        print(f"Photo in {i}...")
         time.sleep(1)
 
-def capture_four_photos(timer):
 
-    # timer: 
-    # 3 = 3 second countdown
-    # 5 = 5 second countdown 
+def capture_four_photos(camera, timer):
 
-    if timer not in [3, 5]:
-        print("Invalid timer. Please choose 3 or 5 seconds.")
-        return []
-
-    camera = Camera()
     photos = []
 
-    try:
-        for photo_number in range(1, 5):
-            print("Photo {}/4".format(photo_number))
+    for photo_number in range(1, 5):
 
-            # Countdown
-            countdown(timer)
+        print(f"\nPhoto {photo_number}/4")
 
-            # Take photo
-            filepath = camera.take_photo(photo_number)
+        countdown(timer)
 
-            # Save filepath 
-            photos.append(filepath)
+        filepath = camera.take_photo(photo_number)
 
-            # Small delay before next photo 
-            if photo_number < 4:
-                time.sleep(1)
+        photos.append(filepath)
 
-        print("\nAll 4 photos have been taken.")
+        if photo_number < 4:
+            time.sleep(1)
 
-        return photos
-
-    finally:
-        camera.close()
+    return photos

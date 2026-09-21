@@ -9,7 +9,7 @@ def main():
     try:
         timer = 3
 
-        print("Starting camera test...")
+        print("Starting camera test ...")
 
         photos = capture_four_photos(camera, timer)
 
