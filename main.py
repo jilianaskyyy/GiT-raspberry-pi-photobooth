@@ -1,10 +1,25 @@
+from camera import Camera
 from camera.capture import capture_four_photos
 
-timer = 3 
+def main():
 
-photos = capture_four_photos(timer)
+    camera = Camera()
 
-print("\nPhotos taken:")
+    try:
+        timer = 3
 
-for photo in photos:
-    print(photo)
+        print("Starting camera test...")
+
+        photos = capture_four_photos(camera, timer)
+
+        print("\nPhotos captured:")
+
+        for photo in photos:
+            print(photo)
+
+    finally:
+        camera.close()
+        print("Camera closed.")
+
+if __name__ == "__main__":
+    main()
