@@ -1,19 +1,13 @@
 from camera.camera import Camera
-from camera.capture import capture_four_photos
+from ui.ui import PhotoboothUI
 
 def main():
 
     camera = Camera()
 
     try:
-        timer = 3
-
-        photos = capture_four_photos(camera, timer)
-
-        print("\nPhotos captured:")
-
-        for photo in photos:
-            print(photo)
+        ui = PhotoboothUI(camera)
+        ui.run()
 
     finally:
         camera.close()
