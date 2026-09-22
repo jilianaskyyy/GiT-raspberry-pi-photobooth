@@ -1,35 +1,44 @@
 from picamera2 import Picamera2
 import os
-import time 
+
 
 PHOTO_FOLDER = "photos"
 
 class Camera:
-    def __init__(self):
+    def __init__(self, preview_size=(800, 480), still_size=(1920, 1080)):
+
+        os.makedirs(PHOTO_FOLDER, exist_ok=True)
 
         # Create camera
         self.camera = Picamera2()
 
-        # Configure camera for still photos
-        config = self.camera.create_still_configuration(
-            main={"size": (1920, 1080)}
+        # Fast, low-res stream used for the live feed on screen.
+        self.preview_config = self.camera.create_preview_configuration(
+            main={"size": preview_size, "format": "RGB888"}
         )
 
-        self.camera.configure (config)
+        # High-res stream only used at the moment a photo is taken.
+        self.still_config = self.camera.create_still_configuration(
+            main={"size": still_size}
+        )
+
+        self.camera.configure (self.preview_config)
 
         # Start camera
         self.camera.start()
 
-        # Allocated time for the camera to initialise
-        time.sleep(2)
-
+        # Set up the camera for preview
+        def get_preview_frame(self):
+        #Returns a HxWx3 RGB numpy array for the current live frame.
+            return self.camera.capture_array()
+        
     def take_photo(self, photo_number):
         filename = "photo_{}.jpg".format(photo_number)
         filepath = os.path.join(PHOTO_FOLDER, filename)
 
-        self.camera.capture_file(filepath)
+        self.camera.switch_mode_and_capture_file(self.still_config, filepath)
 
-        print("Photo {} saved: {}".format(photo_number, filepath))
+        print("Photo saved: {}".format(filepath))
 
         return filepath
 
