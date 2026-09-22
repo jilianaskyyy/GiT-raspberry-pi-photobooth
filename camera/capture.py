@@ -9,6 +9,9 @@ def countdown(seconds):
 # to be changed
 def capture_four_photos(camera, timer):
 
+    if timer not in [3, 5]:
+        print("Invalid timer. Timer must be either 3 or 5 seconds")
+
     photos = []
 
     for photo_number in range(1, 5):
