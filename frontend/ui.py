@@ -2,8 +2,10 @@ import pygame
 
 
 class PhotoboothUI:
-    def __init__(self):
+    def __init__(self,camera):
         pygame.init()
+
+        self.camera = camera
 
         self.width = 800
         self.height = 480
@@ -27,12 +29,25 @@ class PhotoboothUI:
         self.photo_number = 1
         self.photo_taken = False
 
+        self.captured_photos = []
+
     def draw_text(self, text, font, x, y):
         surface = font.render(text, True, (0, 0, 0))
         self.screen.blit(surface, (x, y))
 
+#NEW
+    def draw_camera_feed(self):
+            """Blits the live preview frame as the screen background."""
+            frame = self.camera.get_preview_frame()
+            
+            # capture_array gives HxWx3; pygame surfaces want WxHx3.
+            surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+            surface = pygame.transform.scale(surface, (self.width, self.height))
+    
+            self.screen.blit(surface, (0, 0))
+
     def draw_home(self):
-        self.screen.fill((255, 250, 236))
+        self.draw_camera_feed()
 
         self.draw_text(
             "PHOTOBOOTH",
@@ -55,7 +70,7 @@ class PhotoboothUI:
         )
 
     def draw_timer_select(self):
-        self.screen.fill((255, 250, 236))
+        self.draw_camera_feed()
 
         self.draw_text(
             "CHOOSE COUNTDOWN",
@@ -79,7 +94,7 @@ class PhotoboothUI:
         )
 
     def draw_countdown(self, number):
-        self.screen.fill((0, 0, 0))
+        self.draw_camera_feed()
 
         self.draw_text(
             str(number),
@@ -96,7 +111,7 @@ class PhotoboothUI:
         )
 
     def draw_review(self):
-        self.screen.fill((255, 250, 236))
+        self.draw_camera_feed()
 
         self.draw_text(
             "REVIEW PHOTOS",
@@ -105,58 +120,19 @@ class PhotoboothUI:
             40
         )
 
-        # Temporary placeholders for 4 photos
-        pygame.draw.rect(
-            self.screen,
-            (220, 220, 220),
-            (50, 120, 160, 120)
-        )
+        positions = [50, 230, 410, 590]
 
-        pygame.draw.rect(
-            self.screen,
-            (220, 220, 220),
-            (230, 120, 160, 120)
-        )
+        for i, filepath in enumerate(self.captured_photos):
+            thumb = pygame.image.load(filepath)
+            thumb = pygame.transform.scale(thumb, (160, 120))
+            self.screen.blit(thumb, (positions[i], 120))
 
-        pygame.draw.rect(
-            self.screen,
-            (220, 220, 220),
-            (410, 120, 160, 120)
-        )
-
-        pygame.draw.rect(
-            self.screen,
-            (220, 220, 220),
-            (590, 120, 160, 120)
-        )
-
-        self.draw_text(
-            "PHOTO 1",
-            self.text_font,
-            90,
-            170
-        )
-
-        self.draw_text(
-            "PHOTO 2",
-            self.text_font,
-            270,
-            170
-        )
-
-        self.draw_text(
-            "PHOTO 3",
-            self.text_font,
-            450,
-            170
-        )
-
-        self.draw_text(
-            "PHOTO 4",
-            self.text_font,
-            630,
-            170
-        )
+            self.draw_text(
+                "PHOTO {}".format(i + 1),
+                self.text_font,
+                positions[i] + 30,
+                250
+            )
 
         pygame.draw.rect(
             self.screen,
@@ -218,6 +194,15 @@ class PhotoboothUI:
 
         pygame.display.flip()
 
+    def start_new_round(self, timer):
+        self.timer = timer
+        self.photo_number = 1
+        self.photo_taken = False
+        self.captured_photos = []
+        self.countdown_start = pygame.time.get_ticks()
+        self.current_screen = "countdown"
+
+
     def handle_event(self, event):
         if event.type == pygame.QUIT:
             self.running = False
@@ -235,25 +220,20 @@ class PhotoboothUI:
             elif self.current_screen == "timer_select":
 
                 if event.key == pygame.K_3:
-                    self.timer = 3
-                    self.photo_number = 1
-                    self.photo_taken = False
-                    self.countdown_start = pygame.time.get_ticks()
-                    self.current_screen = "countdown"
+                    self.start_new_round(3)
 
                 elif event.key == pygame.K_5:
-                    self.timer = 5
-                    self.photo_number = 1
-                    self.photo_taken = False
-                    self.countdown_start = pygame.time.get_ticks()
-                    self.current_screen = "countdown"
+                    self.start_new_round(5)
 
             elif self.current_screen == "review":
 
                 if event.key == pygame.K_SPACE:
+                    # Confirm — placeholder for printing/QR step.
                     self.current_screen = "home"
 
                 elif event.key == pygame.K_0:
+                    # Retake — back to timer select, drop this round's photos.
+                    self.captured_photos = []
                     self.photo_number = 1
                     self.photo_taken = False
                     self.current_screen = "timer_select"
@@ -272,6 +252,3 @@ class PhotoboothUI:
         pygame.quit()
 
 
-if __name__ == "__main__":
-    ui = PhotoboothUI()
-    ui.run()
