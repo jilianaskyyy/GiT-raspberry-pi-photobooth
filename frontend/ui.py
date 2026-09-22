@@ -2,7 +2,7 @@ import pygame
 
 
 class PhotoboothUI:
-    def __init__(self,camera):
+    def __init__(self, camera):
         pygame.init()
 
         self.camera = camera
@@ -35,16 +35,15 @@ class PhotoboothUI:
         surface = font.render(text, True, (0, 0, 0))
         self.screen.blit(surface, (x, y))
 
-#NEW
     def draw_camera_feed(self):
-            """Blits the live preview frame as the screen background."""
-            frame = self.camera.get_preview_frame()
-            
-            # capture_array gives HxWx3; pygame surfaces want WxHx3.
-            surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
-            surface = pygame.transform.scale(surface, (self.width, self.height))
-    
-            self.screen.blit(surface, (0, 0))
+        """Blits the live preview frame as the screen background."""
+        frame = self.camera.get_preview_frame()
+
+        # capture_array gives HxWx3; pygame surfaces want WxHx3.
+        surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+        surface = pygame.transform.scale(surface, (self.width, self.height))
+
+        self.screen.blit(surface, (0, 0))
 
     def draw_home(self):
         self.draw_camera_feed()
@@ -178,7 +177,8 @@ class PhotoboothUI:
                 if not self.photo_taken:
                     self.photo_taken = True
 
-                    print(f"Photo {self.photo_number} taken!")
+                    filepath = self.camera.take_photo(self.photo_number)
+                    self.captured_photos.append(filepath)
 
                     self.photo_number += 1
 
@@ -201,7 +201,6 @@ class PhotoboothUI:
         self.captured_photos = []
         self.countdown_start = pygame.time.get_ticks()
         self.current_screen = "countdown"
-
 
     def handle_event(self, event):
         if event.type == pygame.QUIT:
@@ -250,5 +249,3 @@ class PhotoboothUI:
             clock.tick(60)
 
         pygame.quit()
-
-
