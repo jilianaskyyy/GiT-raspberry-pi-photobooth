@@ -1,5 +1,5 @@
 from camera.camera import Camera
-from ui.ui import PhotoboothUI
+from frontend.ui import PhotoboothUI
 
 def main():
 
