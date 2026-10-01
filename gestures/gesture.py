@@ -324,7 +324,7 @@ class GestureDetector:
         if self.is_thumbs_up(landmarks, fingers):
             return "THUMBS_UP"
 
-        if self.is_fist(landmarks, fingers):
+        if self.is_fist(fingers):
             return "IS_FIST"
 
         # Check exactly 3 extended fingers.
