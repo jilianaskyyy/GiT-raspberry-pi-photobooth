@@ -3,12 +3,28 @@ import time
 from datetime import datetime, timedelta, timezone
 from supabase import create_client
 
-BUCKET = "photos" # to be changed, name of the supabase storage bucket
+BUCKET = "Photos" # to be changed, name of the supabase storage bucket
 SESSIONS_TABLE = "sessions" # to be changed, tentatively used for database table witth one row per photostrip?
 LINK_TTL_SECONDS = 24 * 60 * 60 # to be changed, this determines how long download links stay valid for
 
 # Amountof times to try each step before giving up
 MAX_RETRIES = 3 
+
+def load_env_file(path=".env"):
+
+    if not os.path.exists(path):
+        return
+
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, value = line.split("=", 1)
+            os.environ.setdefault(name.strip(), value.strip().strip('"').strip("'"))
+
+load_env_file()
 
 class Uploader:
 
