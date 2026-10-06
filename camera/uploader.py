@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from supabase import create_client
 
 BUCKET = "Photos" # to be changed, name of the supabase storage bucket
-SESSIONS_TABLE = "sessions" # to be changed, tentatively used for database table witth one row per photostrip?
+PHOTOS_TABLE = "Photo_data" # to be changed, tentatively used for database table witth one row per photostrip?
 LINK_TTL_SECONDS = 24 * 60 * 60 # to be changed, this determines how long download links stay valid for
 
 # Amountof times to try each step before giving up
@@ -112,18 +112,21 @@ class Uploader:
         expires_at = now + timedelta(seconds=LINK_TTL_SECONDS)
 
         # Only save a row if a table name is set
-        if SESSIONS_TABLE:
-            row = {
-                "id": session_id, # Unique identifier for this photostrip
-                "photo_paths": remote_paths, # Where the 4 photos are in the bucket
-                "created_at": now.isoformat(), # Upload time as text
-                "expires_at": expires_at.isoformat(),
-            }
+        if PHOTOS_TABLE:
 
+            # One row per photo, so 4 rows for one photostrip
+            rows = []
+
+            for url in urls:
+                rows.append({
+                    "session_id": session_id,
+                    "photo_url": url,
+                    "created_at": now.isoformat(),
+                })
             # Saves the row with retries
             self.retry(
-                "Saving session row",
-                lambda: self.client.table(SESSIONS_TABLE).upsert(row).execute(), # upsert = insert or update if the id already exists
+                "Saving photo rows",
+                lambda: self.client.table(PHOTOS_TABLE).insert(rows).execute(), 
             )
 
         # Log success 
