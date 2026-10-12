@@ -1,4 +1,4 @@
-from db import supabase
+from db.db import supabase
 
 BUCKET = "Photos"
 
