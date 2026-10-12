@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Photobooth Photos</title>
+<style>
+  :root {
+    --bg: #faf7f5;
+    --card: #ffffff;
+    --text: #1f1a17;
+    --muted: #7a706a;
+    --accent: #e60023;
+    --radius: 20px;
+    --shadow: 0 2px 10px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141211;
+      --card: #1f1c1b;
+      --text: #f5f0ee;
+      --muted: #9b918b;
+      --shadow: 0 2px 10px rgba(0,0,0,.5);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 16px 48px;
+  }
+  header { text-align: center; padding: 36px 0 24px; }
+  header h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; }
+  header p { color: var(--muted); margin-top: 6px; font-size: .95rem; }
+
+  /* Masonry */
+  .grid { max-width: 1100px; margin: 0 auto; columns: 2; column-gap: 14px; }
+  @media (min-width: 700px)  { .grid { columns: 3; column-gap: 18px; } }
+  @media (min-width: 1000px) { .grid { columns: 4; } }
+
+  .pin {
+    break-inside: avoid;
+    margin-bottom: 14px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+    box-shadow: var(--shadow);
+    position: relative;
+    cursor: zoom-in;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: rise .5s ease forwards;
+  }
+  @media (min-width: 700px) { .pin { margin-bottom: 18px; } }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .pin img { display: block; width: 100%; height: auto; transition: transform .35s ease; }
+  .pin:hover img { transform: scale(1.04); }
+  .pin::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.35), transparent 40%);
+    opacity: 0; transition: opacity .25s;
+  }
+  .pin:hover::after { opacity: 1; }
+  .pin .save {
+    position: absolute; right: 10px; bottom: 10px; z-index: 2;
+    background: var(--accent); color: #fff; border: 0;
+    padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: .85rem;
+    cursor: pointer; opacity: 0; transform: translateY(6px);
+    transition: opacity .2s, transform .2s;
+  }
+  .pin:hover .save { opacity: 1; transform: none; }
+  @media (hover: none) { .pin .save { opacity: 1; transform: none; } }
+
+  /* Skeletons */
+  .skeleton { height: 220px; background: linear-gradient(90deg, var(--card) 25%, rgba(128,128,128,.15) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite; opacity: 1; transform: none; }
+  .skeleton.tall { height: 300px; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Messages */
+  .msg { text-align: center; color: var(--muted); padding: 60px 20px; max-width: 420px; margin: 0 auto; line-height: 1.5; }
+  .msg strong { display: block; color: var(--text); font-size: 1.1rem; margin-bottom: 6px; }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.88);
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 78vh; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  .lb-actions { display: flex; gap: 10px; }
+  .btn {
+    border: 0; border-radius: 999px; padding: 11px 22px; font-weight: 700; font-size: .95rem; cursor: pointer;
+    background: rgba(255,255,255,.15); color: #fff;
+  }
+  .btn.primary { background: var(--accent); }
+  .nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%; border: 0;
+    background: rgba(255,255,255,.18); color: #fff; font-size: 1.3rem; cursor: pointer;
+  }
+  .nav.prev { left: 14px; } .nav.next { right: 14px; }
+  .close { position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 1.2rem; cursor: pointer; }
+  .counter { color: rgba(255,255,255,.7); font-size: .85rem; }
+
+  footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 36px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Your photobooth photos</h1>
+    <p id="subtitle">Tap a photo to view or save it</p>
+  </header>
+
+  <main id="grid" class="grid"></main>
+  <div id="message"></div>
+
+  <div class="lightbox" id="lightbox">
+    <button class="close" id="close" aria-label="Close">✕</button>
+    <button class="nav prev" id="prev" aria-label="Previous">‹</button>
+    <img id="lb-img" alt="">
+    <button class="nav next" id="next" aria-label="Next">›</button>
+    <div class="counter" id="counter"></div>
+    <div class="lb-actions">
+      <button class="btn primary" id="lb-save">Save photo</button>
+    </div>
+  </div>
+
+  <footer>Made with ♥ at the photobooth</footer>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const supabase = createClient(
+      "https://chpjsnicshnjqiqiikjc.supabase.co",
+      "sb_publishable_jUyEN4A7wsaDGul1Qsw0CA_ip2FJF0j"
+    );
+
+    const grid = document.getElementById("grid");
+    const message = document.getElementById("message");
+    const subtitle = document.getElementById("subtitle");
+    const sessionId = new URLSearchParams(location.search).get("session");
+
+    function showMessage(title, text) {
+      grid.innerHTML = "";
+      message.innerHTML = `<div class="msg"><strong>${title}</strong>${text}</div>`;
+    }
+
+    // Loading skeletons
+    function showSkeletons() {
+      grid.innerHTML = [0,1,2,3].map(i =>
+        `<div class="pin skeleton ${i % 2 ? "tall" : ""}"></div>`).join("");
+    }
+
+    async function save(url, index) {
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `photobooth-${index + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        window.open(url, "_blank"); // fallback: open it so they can long-press to save
+      }
+    }
+
+    let photos = [];
+    let current = 0;
+    const lb = document.getElementById("lightbox");
+    const lbImg = document.getElementById("lb-img");
+    const counter = document.getElementById("counter");
+
+    function openLightbox(i) {
+      current = (i + photos.length) % photos.length;
+      lbImg.src = photos[current];
+      counter.textContent = `${current + 1} / ${photos.length}`;
+      lb.classList.add("open");
+    }
+    const closeLightbox = () => lb.classList.remove("open");
+
+    document.getElementById("close").onclick = closeLightbox;
+    document.getElementById("prev").onclick = () => openLightbox(current - 1);
+    document.getElementById("next").onclick = () => openLightbox(current + 1);
+    document.getElementById("lb-save").onclick = () => save(photos[current], current);
+    lb.addEventListener("click", e => { if (e.target === lb) closeLightbox(); });
+    document.addEventListener("keydown", e => {
+      if (!lb.classList.contains("open")) return;
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft") openLightbox(current - 1);
+      if (e.key === "ArrowRight") openLightbox(current + 1);
+    });
+
+    async function load() {
+      if (!sessionId) {
+        subtitle.textContent = "";
+        return showMessage("No session found", "Please scan the QR code at the photobooth again.");
+      }
+
+      showSkeletons();
+
+      const { data, error } = await supabase
+        .from("Photo_data")
+        .select("photo_url")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error(error);
+        subtitle.textContent = "";
+        return showMessage("Something went wrong", "We couldn't load your photos. Please try again in a moment.");
+      }
+
+      if (!data || data.length === 0) {
+        subtitle.textContent = "";
+        return showMessage("No photos yet", "Your photos might still be uploading. Wait a few seconds and refresh.");
+      }
+
+      photos = data.map(p => p.photo_url);
+      message.innerHTML = "";
+      grid.innerHTML = "";
+
+      photos.forEach((url, i) => {
+        const pin = document.createElement("div");
+        pin.className = "pin";
+        pin.style.animationDelay = `${i * 90}ms`;
+        pin.innerHTML = `<img src="${url}" alt="Photo ${i + 1}" loading="lazy"><button class="save">Save</button>`;
+        pin.addEventListener("click", e => {
+          if (e.target.classList.contains("save")) {
+            e.stopPropagation();
+            save(url, i);
+          } else {
+            openLightbox(i);
+          }
+        });
+        grid.appendChild(pin);
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
