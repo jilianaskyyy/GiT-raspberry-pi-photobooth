@@ -21,7 +21,7 @@ FRAME_PATH = "/tmp/photobooth_frame.npy"
 GESTURE_PATH = "/tmp/photobooth_gesture.txt"
 
 # Upload / print settings
-PRINT_ENABLED = False                   # False = skip the printer (handy when testing upload + QR)
+PRINT_ENABLED = True                   # False = skip the printer (handy when testing upload + QR)
 STRIP_PATH = "photostrip/strip_print.png"
 QR_PATH = "photostrip/qr.png"
 QR_TIMEOUT_MS = 45000                   # QR screen returns to home by itself after this long
