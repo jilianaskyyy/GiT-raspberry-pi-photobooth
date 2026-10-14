@@ -430,8 +430,8 @@ class PhotoboothUI:
     def run_print_job(self, photos):
         # Independent of the upload: a printer problem never blocks the QR code.
         try:
-            from printing.strip import make_strip
-            from printing.printer import print_strip
+            from printer.strip import make_strip
+            from printer.printer import print_strip
  
             make_strip(photos, STRIP_PATH)
  
