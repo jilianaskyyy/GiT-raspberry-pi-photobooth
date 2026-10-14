@@ -15,9 +15,10 @@ from PIL import Image
 # python-escpos warns about the "center" option on every band; it's harmless.
 logging.getLogger("escpos").setLevel(logging.ERROR)
 
-# Pi 5 header UART (GPIO14/15) is /dev/serial0.
+# Pi 5 header UART (GPIO14/15) is /dev/ttyAMA0 once the serial port is enabled.
+# (/dev/serial0 points to the separate debug UART on the Pi 5, so don't use it.)
 # If you use a USB-to-serial adapter instead, this is usually /dev/ttyUSB0.
-SERIAL_PORT = "/dev/serial0"
+SERIAL_PORT = "/dev/ttyAMA0"
 
 # Check your printer's self-test page for the real baud rate
 # (commonly 9600, 19200 or 115200).
