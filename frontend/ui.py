@@ -27,7 +27,9 @@ GESTURE_PATH = "/tmp/photobooth_gesture.txt"
 
 # Upload / print settings
 PRINT_ENABLED = True                    # False = skip the printer (handy when testing upload + QR)
-STRIP_PATH = "photostrip/strip_print.png"
+STRIP_PATH = "photostrip/strip_print.png"          # black & white, for the printer
+STRIP_COLOR_PATH = "photostrip/strip_color.jpg"    # colour copy that goes online
+STRIP_ONLINE_WIDTH = 768                           # online strip width in px
 QR_PATH = "photostrip/qr.png"
 QR_TIMEOUT_MS = 45000                   # QR screen returns to home by itself after this long
 
@@ -47,6 +49,10 @@ ASSET_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets"
 )
 
+# Logo shown at the bottom of the strip (transparent PNG). If this file is
+# missing, the text "GIRLS IN TECH" is used instead.
+STRIP_LOGO = os.path.join(ASSET_DIR, "git_logo.png")
+
 # Colours
 PURPLE = (108, 52, 184)
 LAVENDER = (206, 190, 238)
@@ -58,19 +64,26 @@ INK = (34, 28, 56)
 # the camera preview, so the picture is never stretched.
 # ----------------------------------------------------------------------
 
-CAM_BIG = pygame.Rect(270, 135, 1380, 828)      # timer, countdown, review
-CAM_HOME = pygame.Rect(590, 530, 740, 444)      # home
-CAM_QR = pygame.Rect(930, 360, 735, 441)        # qr
-QR_PANEL = pygame.Rect(200, 238, 660, 660)      # white panel holding the QR code
+CAM_BIG = pygame.Rect(330, 240, 1260, 756)      # timer, countdown, review
+CAM_HOME = pygame.Rect(590, 500, 740, 444)      # home (its top follows the logo)
+CAM_QR = pygame.Rect(930, 375, 735, 441)        # qr
+QR_PANEL = pygame.Rect(200, 255, 660, 660)      # white panel holding the QR code
 QR_SIZE = 600
 
-SLOT_W = 300                                    # review photo slots (4:3, like the printed strip)
-SLOT_H = 225
-SLOT_GAP = 30
-SLOT_TOP = 367
+# Review photo slots (4:3, like the printed strip), sized to fit inside CAM_BIG
+SLOT_GAP = 26
+SLOT_W = (CAM_BIG.w - 100 - 3 * SLOT_GAP) // 4
+SLOT_H = SLOT_W * 3 // 4
+SLOT_TOP = CAM_BIG.y + int(CAM_BIG.h * 0.26)
 
-LOGO_BIG_MAX = (1000, 380)      # (max width, max height) on the home screen
-LOGO_SMALL_MAX = (520, 96)      # on every other screen; kept short so it clears the camera frame
+# Speech bubbles inside the big camera box
+BUBBLE_BIG_TOP = CAM_BIG.bottom - 210
+BUBBLE_COUNT_TOP = CAM_BIG.bottom - 100
+
+# (max width, max height). The small logo must stay shorter than the gap
+# above the camera frame (about 215 px) or it will be covered by it.
+LOGO_BIG_MAX = (1300, 430)      # home screen
+LOGO_SMALL_MAX = (1040, 190)    # every other screen
 
 # name -> (file in assets/, height on screen in px)
 HANDS = {
@@ -131,6 +144,16 @@ def crop_to_aspect(surface, aspect):
     else:
         new_h = int(w / aspect)
         rect = pygame.Rect(0, (h - new_h) // 2, w, new_h)
+
+    return surface.subsurface(rect).copy()
+
+
+def trim_transparent(surface):
+    """Crops away empty (transparent) margins so the logo sits where we place it."""
+    rect = surface.get_bounding_rect()
+
+    if rect.width == 0 or rect.height == 0:
+        return surface
 
     return surface.subsurface(rect).copy()
 
@@ -285,6 +308,9 @@ class PhotoboothUI:
         # Optional flatter logo for the inner screens; falls back to logo.png.
         logo_small = load_asset_image("logo_small.png") or logo
 
+        logo = trim_transparent(logo)
+        logo_small = trim_transparent(logo_small)
+
         return fit_within(logo, *LOGO_BIG_MAX), fit_within(logo_small, *LOGO_SMALL_MAX)
 
     def load_hands(self):
@@ -307,11 +333,13 @@ class PhotoboothUI:
 
     def draw_logo(self, big=False):
         if big:
-            rect = self.logo_big.get_rect(midtop=(self.width // 2, 70))
+            rect = self.logo_big.get_rect(midtop=(self.width // 2, 40))
             self.screen.blit(self.logo_big, rect)
         else:
             rect = self.logo_small.get_rect(midtop=(self.width // 2, 14))
             self.screen.blit(self.logo_small, rect)
+
+        return rect
 
     def draw_hand(self, key, x, anchor="left"):
         image = self.hands.get(key)
@@ -422,8 +450,12 @@ class PhotoboothUI:
 
     def draw_home(self):
         self.draw_background()
-        self.draw_logo(big=True)
-        self.draw_camera_feed(CAM_HOME)
+        logo_rect = self.draw_logo(big=True)
+
+        # Camera sits just under the logo, however tall the logo turns out.
+        cam = CAM_HOME.copy()
+        cam.top = logo_rect.bottom + 45
+        self.draw_camera_feed(cam)
 
         self.draw_bubble(["Show a thumbs", "up to start"], 365, 600)
         self.draw_hand("thumbs_up", 190)
@@ -436,7 +468,7 @@ class PhotoboothUI:
         self.draw_bubble(
             ["Hold up 3 fingers for 3 seconds", "Hold up 5 fingers for 5 seconds"],
             self.width // 2,
-            745
+            BUBBLE_BIG_TOP
         )
 
         self.draw_hand("three", 120)
@@ -453,11 +485,16 @@ class PhotoboothUI:
         self.draw_bubble(
             ["Photo {} of 4".format(self.photo_number)],
             self.width // 2,
-            868
+            BUBBLE_COUNT_TOP
         )
 
     def build_review_thumbs(self):
-        key = tuple(self.captured_photos)
+        # Retakes save over the same file names, so the file's modified time
+        # is part of the key; otherwise the old photos stay on screen.
+        key = tuple(
+            (path, os.path.getmtime(path) if os.path.exists(path) else 0)
+            for path in self.captured_photos
+        )
 
         if key == self.review_thumbs_key:
             return
@@ -502,7 +539,7 @@ class PhotoboothUI:
         self.draw_bubble(
             ["Hold up thumbs up to confirm", "Hold up closed fist to retake"],
             self.width // 2,
-            745
+            BUBBLE_BIG_TOP
         )
 
         self.draw_hand("thumbs_up", 150)
@@ -550,7 +587,7 @@ class PhotoboothUI:
         self.draw_bubble(
             ["Hold thumbs up once you have", "finished scanning"],
             CAM_QR.centerx,
-            846
+            CAM_QR.bottom + 45
         )
 
         if PRINT_ENABLED:
@@ -564,7 +601,7 @@ class PhotoboothUI:
                 note = None
 
             if note:
-                self.draw_bubble([note], QR_PANEL.centerx, 920, font=self.small_font)
+                self.draw_bubble([note], QR_PANEL.centerx, QR_PANEL.bottom + 18, font=self.small_font)
 
         self.draw_hand("thumbs_up", self.width - 70, anchor="right")
 
@@ -575,7 +612,7 @@ class PhotoboothUI:
         self.draw_logo()
 
         panel = pygame.Rect(0, 0, 1200, 380)
-        panel.center = (self.width // 2, 440)
+        panel.center = (self.width // 2, 470)
         self.draw_panel(panel)
 
         heading = self.pixel_heading.render("OOPS!", True, PURPLE)
@@ -590,7 +627,7 @@ class PhotoboothUI:
         self.draw_bubble(
             ["Hold up thumbs up to try again", "Hold up closed fist to start over"],
             self.width // 2,
-            700
+            730
         )
 
         self.draw_hand("thumbs_up", 150)
@@ -666,11 +703,13 @@ class PhotoboothUI:
         self.photo_number = 1
         self.photo_taken = False
         self.captured_photos = []
+        self.review_thumbs_key = None
         self.countdown_start = pygame.time.get_ticks()
         self.change_screen("countdown")
 
     def retake_photos(self):
         self.captured_photos = []
+        self.review_thumbs_key = None
         self.photo_number = 1
         self.photo_taken = False
         self.change_screen("timer_select")
@@ -725,6 +764,21 @@ class PhotoboothUI:
                 )
                 save_photo(session_id, number, path)
 
+            # The photo strip (all 4 photos + logo) goes online as a 5th picture.
+            # If making it fails, the 4 photos are still saved, so carry on.
+            try:
+                from printer.strip import make_strip
+
+                self.job_message = "Adding your photo strip..."
+                make_strip(
+                    photos, STRIP_COLOR_PATH,
+                    width=STRIP_ONLINE_WIDTH, dither=False, logo_path=STRIP_LOGO
+                )
+                save_photo(session_id, len(photos) + 1, STRIP_COLOR_PATH)
+
+            except Exception as error:
+                print("Photo strip upload skipped:", error)
+
             self.job_message = "Making your QR code..."
             make_qr(session_id, save_as=QR_PATH)
 
@@ -740,7 +794,7 @@ class PhotoboothUI:
             from printer.strip import make_strip
             from printer.printer import print_strip
 
-            make_strip(photos, STRIP_PATH)
+            make_strip(photos, STRIP_PATH, logo_path=STRIP_LOGO)
 
             # One print at a time, in case a new round finishes while this one prints.
             with self.print_lock:
