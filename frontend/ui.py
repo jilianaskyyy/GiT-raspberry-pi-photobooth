@@ -32,6 +32,9 @@ HAND_JSON_PATH = "/tmp/photobooth_hand.json"      # hand points, written by gest
 SHOW_HAND_DOTS = True          # the 21 hand points and the lines joining them
 SHOW_ACTION_LABEL = True       # "Thumbs up", "3 fingers"... at the top of the camera view
 SHOW_HOLD_BAR = True           # small bar that fills while a gesture is being held
+
+FLASH_ENABLED = True           # white flash when a photo is taken
+FLASH_MS = 450                 # how long the flash takes to fade away
 HAND_STALE_SECONDS = 1.0       # ignore hand data older than this (e.g. server stopped)
 
 # Upload / print settings
@@ -299,6 +302,11 @@ class PhotoboothUI:
         self.candidate_start = 0
         self.cooldown_until = 0
 
+        # Camera flash: a white layer that fades out after each photo
+        self.flash_start = None
+        self.flash_surface = pygame.Surface((self.width, self.height))
+        self.flash_surface.fill(WHITE)
+
         # Hand points + gesture for the overlay (from gesture_server.py)
         self.hand_points = None
         self.hand_gesture = None
@@ -553,6 +561,21 @@ class PhotoboothUI:
         pygame.draw.rect(self.screen, WHITE, rect.inflate(16, 16), width=8)
         pygame.draw.rect(self.screen, PURPLE, rect.inflate(30, 30), width=7)
 
+    def draw_flash(self):
+        """White flash that fades out quickly, like a camera flash."""
+        if self.flash_start is None:
+            return
+
+        progress = (pygame.time.get_ticks() - self.flash_start) / FLASH_MS
+
+        if progress >= 1:
+            self.flash_start = None
+            return
+
+        # (1 - progress) squared: bright at first, then fades fast.
+        self.flash_surface.set_alpha(int(255 * (1 - progress) ** 2))
+        self.screen.blit(self.flash_surface, (0, 0))
+
     def draw_gesture_debug(self):
         if SHOW_GESTURE_DEBUG:
             text = "Gesture: {}".format(self.detected_gesture)
@@ -772,6 +795,9 @@ class PhotoboothUI:
                     filepath = self.camera.take_photo(self.photo_number)
                     self.captured_photos.append(filepath)
 
+                    if FLASH_ENABLED:
+                        self.flash_start = pygame.time.get_ticks()
+
                     self.photo_number += 1
 
                 if self.photo_number > 4:
@@ -803,6 +829,7 @@ class PhotoboothUI:
             self.draw_error()
 
         self.draw_gesture_debug()
+        self.draw_flash()
 
         pygame.display.flip()
 
