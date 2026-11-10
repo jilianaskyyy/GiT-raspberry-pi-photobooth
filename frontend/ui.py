@@ -1,5 +1,7 @@
+import json
 import os
 import threading
+import time
 
 import numpy as np
 import pygame
@@ -24,6 +26,13 @@ SHOW_GESTURE_DEBUG = False
 # Shared files used to talk to gesture_server.py (runs in the 3.11 venv).
 FRAME_PATH = "/tmp/photobooth_frame.npy"
 GESTURE_PATH = "/tmp/photobooth_gesture.txt"
+HAND_JSON_PATH = "/tmp/photobooth_hand.json"      # hand points, written by gesture_server.py
+
+# What to draw on top of the camera view
+SHOW_HAND_DOTS = True          # the 21 hand points and the lines joining them
+SHOW_ACTION_LABEL = True       # "Thumbs up", "3 fingers"... at the top of the camera view
+SHOW_HOLD_BAR = True           # small bar that fills while a gesture is being held
+HAND_STALE_SECONDS = 1.0       # ignore hand data older than this (e.g. server stopped)
 
 # Upload / print settings
 PRINT_ENABLED = True                    # False = skip the printer (handy when testing upload + QR)
@@ -94,6 +103,33 @@ HANDS = {
 }
 
 HAND_BOTTOM = SCREEN_H + 20                     # hands sit on the bottom edge, slightly cut off
+
+# Text shown at the top of the camera view for each gesture
+GESTURE_LABELS = {
+    "THUMBS_UP": "Thumbs up",
+    "THREE_FINGERS": "3 fingers",
+    "OPEN_HAND": "Open hand",
+    "IS_FIST": "Closed fist",
+}
+
+# Which gestures do something on each screen (the hold bar only fills for these)
+SCREEN_GESTURES = {
+    "home": {"THUMBS_UP"},
+    "timer_select": {"THREE_FINGERS", "OPEN_HAND"},
+    "review": {"THUMBS_UP", "IS_FIST"},
+    "qr": {"THUMBS_UP"},
+    "error": {"THUMBS_UP", "IS_FIST"},
+}
+
+# Which of the 21 hand points are joined by a line (MediaPipe's hand skeleton)
+HAND_CONNECTIONS = [
+    (0, 1), (1, 2), (2, 3), (3, 4),            # thumb
+    (0, 5), (5, 6), (6, 7), (7, 8),            # index finger
+    (5, 9), (9, 10), (10, 11), (11, 12),       # middle finger
+    (9, 13), (13, 14), (14, 15), (15, 16),     # ring finger
+    (13, 17), (17, 18), (18, 19), (19, 20),    # little finger
+    (0, 17),                                   # edge of the palm
+]
 
 
 # ----------------------------------------------------------------------
@@ -263,6 +299,11 @@ class PhotoboothUI:
         self.candidate_start = 0
         self.cooldown_until = 0
 
+        # Hand points + gesture for the overlay (from gesture_server.py)
+        self.hand_points = None
+        self.hand_gesture = None
+        self.hand_read_at = 0
+
         # Upload / print job state (the work runs in background threads)
         self.job_message = ""
         self.job_done = False
@@ -420,7 +461,81 @@ class PhotoboothUI:
 
         return frame
 
-    def draw_camera_feed(self, rect):
+    def read_hand_state(self):
+        """Reads the hand points file (at most ~20 times a second)."""
+        now = pygame.time.get_ticks()
+
+        if now - self.hand_read_at < 50:
+            return
+
+        self.hand_read_at = now
+
+        try:
+            with open(HAND_JSON_PATH, "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, ValueError, OSError):
+            data = None
+
+        if not data or time.time() - data.get("t", 0) > HAND_STALE_SECONDS:
+            self.hand_points = None
+            self.hand_gesture = None
+            return
+
+        self.hand_points = data.get("landmarks")
+        self.hand_gesture = data.get("gesture")
+
+    def draw_hand_overlay(self, rect):
+        """Hand dots + skeleton, the gesture name and the hold bar, on top of the camera view."""
+        self.read_hand_state()
+
+        if not self.hand_points:
+            return      # no hand in view: draw nothing
+
+        # The points are 0-1 across the camera image, so they map straight onto rect.
+        points = [
+            (rect.x + x * rect.w, rect.y + y * rect.h) for x, y in self.hand_points
+        ]
+
+        if SHOW_HAND_DOTS:
+            self.screen.set_clip(rect)
+
+            for a, b in HAND_CONNECTIONS:
+                pygame.draw.line(self.screen, WHITE, points[a], points[b], 7)
+                pygame.draw.line(self.screen, PURPLE, points[a], points[b], 3)
+
+            for x, y in points:
+                pygame.draw.circle(self.screen, WHITE, (x, y), 11)
+                pygame.draw.circle(self.screen, PURPLE, (x, y), 7)
+
+            self.screen.set_clip(None)
+
+        if SHOW_ACTION_LABEL:
+            label = GESTURE_LABELS.get(self.hand_gesture, "Hand detected")
+            surface = self.small_font.render(label, True, INK)
+
+            pill = pygame.Rect(0, 0, max(surface.get_width() + 56, 200), 56)
+            pill.midtop = (rect.centerx, rect.top + 16)
+
+            pygame.draw.rect(self.screen, WHITE, pill, border_radius=28)
+            self.screen.blit(surface, surface.get_rect(center=pill.center))
+
+            if (SHOW_HOLD_BAR
+                    and self.hand_gesture in SCREEN_GESTURES.get(self.current_screen, ())
+                    and self.hand_gesture == self.candidate_gesture):
+                progress = (pygame.time.get_ticks() - self.candidate_start) / HOLD_MS
+                progress = max(0.0, min(1.0, progress))
+
+                bar = pygame.Rect(0, 0, pill.width, 12)
+                bar.midtop = (pill.centerx, pill.bottom + 8)
+
+                pygame.draw.rect(self.screen, WHITE, bar, border_radius=6)
+                pygame.draw.rect(
+                    self.screen, PURPLE,
+                    (bar.x, bar.y, int(bar.width * progress), bar.height),
+                    border_radius=6
+                )
+
+    def draw_camera_feed(self, rect, overlay=True):
         """Draws the live preview inside rect, with a white + purple frame."""
         frame = self.pump_camera()
 
@@ -431,6 +546,9 @@ class PhotoboothUI:
         surface = pygame.transform.scale(surface, rect.size)
 
         self.screen.blit(surface, rect.topleft)
+
+        if overlay:
+            self.draw_hand_overlay(rect)
 
         pygame.draw.rect(self.screen, WHITE, rect.inflate(16, 16), width=8)
         pygame.draw.rect(self.screen, PURPLE, rect.inflate(30, 30), width=7)
@@ -477,7 +595,7 @@ class PhotoboothUI:
     def draw_countdown(self, number):
         self.draw_background()
         self.draw_logo()
-        self.draw_camera_feed(CAM_BIG)
+        self.draw_camera_feed(CAM_BIG, overlay=False)
 
         digit = self.get_digit(number)
         self.screen.blit(digit, digit.get_rect(center=CAM_BIG.center))
