@@ -14,8 +14,8 @@ MARGIN = 12   # white border around the whole strip
 FOOTER_TEXT = "GIRLS IN TECH"
 
 # The logo is scaled to fit inside this share of the strip width / height.
-LOGO_MAX_WIDTH_SHARE = 0.7
-LOGO_MAX_HEIGHT_SHARE = 0.2
+LOGO_MAX_WIDTH_SHARE = 0.92
+LOGO_MAX_HEIGHT_SHARE = 0.4
 
 
 def _scaled(value, width):
