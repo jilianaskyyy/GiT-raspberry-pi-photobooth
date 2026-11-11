@@ -33,6 +33,7 @@ SHOW_HAND_DOTS = True          # the 21 hand points and the lines joining them
 SHOW_ACTION_LABEL = True       # "Thumbs up", "3 fingers"... at the top of the camera view
 SHOW_HOLD_BAR = True           # small bar that fills while a gesture is being held
 
+MIRROR_CAMERA = True          # mirror the preview AND the saved photos (like a mirror)
 FLASH_ENABLED = True           # white flash when a photo is taken
 FLASH_MS = 450                 # how long the flash takes to fade away
 HAND_STALE_SECONDS = 1.0       # ignore hand data older than this (e.g. server stopped)
@@ -500,8 +501,10 @@ class PhotoboothUI:
             return      # no hand in view: draw nothing
 
         # The points are 0-1 across the camera image, so they map straight onto rect.
+        # When the preview is mirrored, the dots must be mirrored too.
         points = [
-            (rect.x + x * rect.w, rect.y + y * rect.h) for x, y in self.hand_points
+            (rect.x + ((1 - x) if MIRROR_CAMERA else x) * rect.w, rect.y + y * rect.h)
+            for x, y in self.hand_points
         ]
 
         if SHOW_HAND_DOTS:
@@ -548,7 +551,10 @@ class PhotoboothUI:
         frame = self.pump_camera()
 
         # Picamera2 "RGB888" is actually BGR in memory; pygame wants RGB.
-        rgb = frame[:, :, 2::-1].copy()
+        rgb = frame[:, :, 2::-1]
+        if MIRROR_CAMERA:
+            rgb = rgb[:, ::-1]      # flip left-right
+        rgb = np.ascontiguousarray(rgb)
 
         surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
         surface = pygame.transform.scale(surface, rect.size)
@@ -560,6 +566,17 @@ class PhotoboothUI:
 
         pygame.draw.rect(self.screen, WHITE, rect.inflate(16, 16), width=8)
         pygame.draw.rect(self.screen, PURPLE, rect.inflate(30, 30), width=7)
+
+    def mirror_file(self, filepath):
+        """Flips a saved photo left-right so it matches the mirrored preview."""
+        try:
+            from PIL import Image, ImageOps
+
+            with Image.open(filepath) as img:
+                flipped = ImageOps.mirror(img)
+                flipped.save(filepath, quality=95)
+        except Exception as error:
+            print("Could not mirror photo:", error)
 
     def draw_flash(self):
         """White flash that fades out quickly, like a camera flash."""
@@ -793,6 +810,8 @@ class PhotoboothUI:
                     self.photo_taken = True
 
                     filepath = self.camera.take_photo(self.photo_number)
+                    if MIRROR_CAMERA:
+                        self.mirror_file(filepath)
                     self.captured_photos.append(filepath)
 
                     if FLASH_ENABLED:
